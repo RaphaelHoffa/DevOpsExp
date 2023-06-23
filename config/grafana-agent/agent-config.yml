@@ -1,0 +1,77 @@
+integrations:
+  prometheus_remote_write:
+    - url: http://localhost:9009/api/v1/push
+  agent:
+    enabled: true
+    relabel_configs:
+    - action: replace
+      source_labels:
+      - agent_hostname
+      target_label: instance
+    - action: replace
+      target_label: job
+      replacement: "integrations/agent-check"
+    metric_relabel_configs:
+    - action: keep
+      regex: (prometheus_target_.*|prometheus_sd_discovered_targets|agent_build.*|agent_wal_samples_appended_total|process_start_time_seconds)
+      source_labels:
+      - __name__
+  # Add here any snippet that belongs to the `integrations` section.
+  # For a correct indentation, paste snippets copied from Grafana Cloud at the beginning of the line.
+  node_exporter:
+    enabled: true
+    relabel_configs:
+    - replacement: $(hostname)
+      source_labels: [agent_hostname]
+      target_label: instance
+    - replacement: "integrations/macos-node"
+      source_labels: [agent_hostname]
+      target_label: job
+logs:
+  configs:
+  - clients:
+      - url: http://localhost:3100/loki/api/v1/push
+    name: integrations
+    positions:
+      filename: /tmp/positions.yaml
+    scrape_configs:
+      # Add here any snippet that belongs to the `logs.configs.scrape_configs` section.
+      # For a correct indentation, paste snippets copied from Grafana Cloud at the beginning of the line.
+    - job_name: integrations/node_exporter_direct_scrape
+      static_configs:
+      - targets:
+        - localhost
+        labels:
+          instance: $(hostname)
+          __path__: /var/log/*.log
+          job: integrations/macos-node
+      pipeline_stages:
+      - multiline:
+          firstline: '^([\w]{3} )?[\w]{3} +[\d]+ [\d]+:[\d]+:[\d]+|[\w]{4}-[\w]{2}-[\w]{2} [\w]{2}:[\w]{2}:[\w]{2}(?:[+-][\w]{2})?'
+      - regex:
+          expression: '(?P<timestamp>([\w]{3} )?[\w]{3} +[\d]+ [\d]+:[\d]+:[\d]+|[\w]{4}-[\w]{2}-[\w]{2} [\w]{2}:[\w]{2}:[\w]{2}(?:[+-][\w]{2})?) (?P<hostname>\S+) (?P<sender>.+?)\[(?P<pid>\d+)\]:? (?P<message>(?s:.*))$'
+      - labels:
+          sender:
+          hostname:
+          pid:
+      - match:
+          selector: '{sender!="", pid!=""}'
+          stages:
+            - template:
+                source: message
+                template: '{{.sender }}[{{.pid}}]: {{ .message }}'
+            - labeldrop:
+                - pid
+            - output:
+                source: message
+metrics:
+  configs:
+  - name: integrations
+    remote_write:
+      - url: http://localhost:9009/api/v1/push
+    scrape_configs:
+      # Add here any snippet that belongs to the `metrics.configs.scrape_configs` section.
+      # For a correct indentation, paste snippets copied from Grafana Cloud at the beginning of the line.
+  global:
+    scrape_interval: 60s
+  wal_directory: /tmp/grafana-agent-wal

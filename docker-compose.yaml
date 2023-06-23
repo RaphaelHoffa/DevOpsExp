@@ -1,0 +1,79 @@
+version: "3"
+
+networks:
+  grafanet:
+
+services:
+  loki:
+    image: grafana/loki:2.8.0
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - grafanet
+
+  promtail:
+    image: grafana/promtail:2.8.0
+    volumes:
+      # - /var/log:/var/log
+      - ./promtail/log.txt:/var/logtest/log.txt
+      - ./promtail/log_lgftm.log:/var/logtest2/log_lgftm.log
+      - ./promtail/config.yaml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - grafanet
+
+  grafana:
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources
+        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+        apiVersion: 1
+        datasources:
+        - name: Loki
+          type: loki
+          access: proxy 
+          orgId: 1
+          url: http://loki:3100
+          basicAuth: false
+          isDefault: true
+          version: 1
+          editable: false
+        EOF
+        /run.sh
+    image: grafana/grafana-enterprise:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - grafanet
+
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --log.level=error
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+    volumes:
+      - ./config/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml
+    networks:
+      - grafanet
+
+  mimir:
+    image: grafana/mimir:latest
+    command: 
+      - --config.file=/etc/mimir.yaml
+    volumes:
+      - ./config/mimir/demo.yaml:/etc/mimir.yaml
+    ports:
+      - "9009:9009"
+    networks:
+      - grafanet
+
