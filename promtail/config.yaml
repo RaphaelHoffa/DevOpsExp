@@ -50,6 +50,9 @@ scrape_configs:
       - match:
           selector: '{job="logftm"}'
           stages:
+            - multiline:
+                firstline: '^\{'
+                max_wait_time: 3s          
             - replace:
                 expression: '([0-9]{3}[\.]?[0-9]{3}[\.]?[0-9]{3})[-]?[0-9]{2}' #procurar CPF e manter ultimos dois digitos
                 replace: "*********"
