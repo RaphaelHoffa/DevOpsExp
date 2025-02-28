@@ -3,7 +3,7 @@ Baixar o agent Grafana https://github.com/grafana/agent/releases e seguir as ins
 
 Documentações referência:
 
-Grafana: https://grafana.com/docs/grafana/latest/
+Grafana 2: https://grafana.com/docs/grafana/latest/
 
 Mimir: https://grafana.com/docs/mimir/latest/
 
